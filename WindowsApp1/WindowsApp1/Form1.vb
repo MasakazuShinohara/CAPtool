@@ -26,6 +26,14 @@ Public Class Form1
     Private Shared Function UnregisterHotKey(hWnd As IntPtr, id As Integer) As Boolean
     End Function
 
+    <DllImport("user32.dll")>
+    Private Shared Function GetClientRect(hWnd As IntPtr, ByRef rect As RECT) As Boolean
+    End Function
+
+    <DllImport("user32.dll")>
+    Private Shared Function ClientToScreen(hWnd As IntPtr, ByRef point As Point) As Boolean
+    End Function
+
     <StructLayout(LayoutKind.Sequential)>
     Public Structure RECT
         Public Left As Integer
@@ -81,19 +89,23 @@ Public Class Form1
         Try
             Dim hWnd As IntPtr = GetForegroundWindow()
             Dim rect As New RECT()
-            GetWindowRect(hWnd, rect)
+            GetClientRect(hWnd, rect)
             Dim width As Integer = rect.Right - rect.Left
             Dim height As Integer = rect.Bottom - rect.Top
 
+            ' クライアント領域の左上の座標をスクリーン座標に変換
+            Dim clientPoint As New Point(rect.Left, rect.Top)
+            ClientToScreen(hWnd, clientPoint)
+
             Dim windowGrab As New Bitmap(width, height)
             Dim g As Graphics = Graphics.FromImage(windowGrab)
-            g.CopyFromScreen(rect.Left, rect.Top, 0, 0, New Size(width, height))
+            g.CopyFromScreen(clientPoint.X, clientPoint.Y, 0, 0, New Size(width, height))
 
             ' CheckBox1にチェックが入っている場合のみ、マウスカーソルの位置に赤い円を描画
             If CheckBox1.Checked Then
                 Dim cursorPosition As Point = Cursor.Position
                 Dim redPen As New Pen(Color.Red, 2)
-                g.DrawEllipse(redPen, cursorPosition.X - rect.Left - 10, cursorPosition.Y - rect.Top - 10, 20, 20)
+                g.DrawEllipse(redPen, cursorPosition.X - clientPoint.X - 10, cursorPosition.Y - clientPoint.Y - 10, 20, 20)
             End If
 
             ' ファイル名に現在の日時を付与
