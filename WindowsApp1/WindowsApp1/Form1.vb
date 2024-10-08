@@ -55,7 +55,6 @@ Public Class Form1
         Me.MinimizeBox = False
     End Sub
 
-
     Protected Overrides Sub WndProc(ByRef m As Message)
         If m.Msg = &H312 Then ' WM_HOTKEY
             If m.WParam.ToInt32() = 1 Then ' ESCキー
@@ -88,24 +87,36 @@ Public Class Form1
     Private Sub CaptureWindow()
         Try
             Dim hWnd As IntPtr = GetForegroundWindow()
+            Dim windowRect As New RECT()
+            Dim clientRect As New RECT()
+            GetWindowRect(hWnd, windowRect)
+            GetClientRect(hWnd, clientRect)
+
+            ' クライアント領域の左上の座標をスクリーン座標に変換
+            Dim clientPoint As New Point(clientRect.Left, clientRect.Top)
+            ClientToScreen(hWnd, clientPoint)
+
+            ' タイトルバーの高さを計算
+            Dim titleBarHeight As Integer = clientPoint.Y - windowRect.Top
+
             Dim rect As New RECT()
             GetClientRect(hWnd, rect)
             Dim width As Integer = rect.Right - rect.Left
-            Dim height As Integer = rect.Bottom - rect.Top
+            Dim height As Integer = rect.Bottom - rect.Top + titleBarHeight
 
             ' クライアント領域の左上の座標をスクリーン座標に変換
-            Dim clientPoint As New Point(rect.Left, rect.Top)
-            ClientToScreen(hWnd, clientPoint)
+            Dim clientPoint2 As New Point(rect.Left, rect.Top)
+            ClientToScreen(hWnd, clientPoint2)
 
             Dim windowGrab As New Bitmap(width, height)
             Dim g As Graphics = Graphics.FromImage(windowGrab)
-            g.CopyFromScreen(clientPoint.X, clientPoint.Y, 0, 0, New Size(width, height))
+            g.CopyFromScreen(clientPoint2.X, clientPoint2.Y - titleBarHeight, 0, 0, New Size(width, height))
 
             ' CheckBox1にチェックが入っている場合のみ、マウスカーソルの位置に赤い円を描画
             If CheckBox1.Checked Then
                 Dim cursorPosition As Point = Cursor.Position
                 Dim redPen As New Pen(Color.Red, 2)
-                g.DrawEllipse(redPen, cursorPosition.X - clientPoint.X - 10, cursorPosition.Y - clientPoint.Y - 10, 20, 20)
+                g.DrawEllipse(redPen, cursorPosition.X - clientPoint2.X - 10, cursorPosition.Y - clientPoint2.Y - 10, 20, 20)
             End If
 
             ' ファイル名に現在の日時を付与
@@ -117,7 +128,6 @@ Public Class Form1
         End Try
     End Sub
 
-
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
         captureInProgress = False
         captureTimer.Stop()
@@ -127,8 +137,16 @@ Public Class Form1
 
     Private Sub StartExcelAndInsertImages()
         Try
+            Dim excelApp As Excel.Application
+
             ' Excelアプリケーションに接続
-            Dim excelApp As Excel.Application = Marshal.GetActiveObject("Excel.Application")
+            Try
+                excelApp = Marshal.GetActiveObject("Excel.Application")
+            Catch ex As Exception
+                ' Excelが起動していない場合は新しく起動
+                excelApp = New Excel.Application()
+            End Try
+
             excelApp.Visible = True
 
             ' 新しいブックを作成
@@ -158,6 +176,5 @@ Public Class Form1
             ' エラーメッセージの表示をやめる
         End Try
     End Sub
-
 
 End Class
